@@ -1,14 +1,3 @@
-"""
-SMS gateway. Written for Africa's Talking (pip install requests). To use another provider,
-rewrite send() only: it must return (ok, provider_ref, error).
-
-settings.py:
-    SMS_USERNAME = "sandbox"            # your Africa's Talking username
-    SMS_API_KEY = "..."                 # from the environment, not the code
-    SMS_SENDER_ID = ""                  # optional approved sender name
-    SMS_SANDBOX = True                  # False once you go live
-    SMS_WEBHOOK_SECRET = "long-random-string"   # protects the delivery-report URL
-"""
 import requests
 from django.conf import settings
 
