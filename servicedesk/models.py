@@ -3,6 +3,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator, RegexVa
 from django.conf import settings
 from django.utils import timezone
 
+
 phone_validator = RegexValidator(r"^254[17]\d{8}$", "Use the format 2547XXXXXXXX.")
 
 
@@ -39,6 +40,9 @@ class FarmerRef(models.Model):
     full_name = models.CharField(max_length=150)
     gender = models.CharField(max_length=10, blank=True, null=True)
     phone = models.CharField(max_length=20)
+    county = models.CharField(max_length=20, blank=True, null=True)
+    subcounty = models.CharField(max_length=20, blank=True, null=True)
+    ward = models.CharField(max_length=20, blank=True, null=True)
     county_code = models.CharField(max_length=20, blank=True, null=True)
     subcounty_code = models.CharField(max_length=20, blank=True, null=True)
     ward_code = models.CharField(max_length=20, blank=True, null=True)

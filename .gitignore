@@ -11,19 +11,7 @@ env/
 ENV/
 
 # Environment variables and secrets
-.env
-.env.*
-!.env.example
-
-# Django files
-db.sqlite3
-db.sqlite3-journal
-media/
-staticfiles/
-
-# Logs
-*.log
-
+.envk
 # Test and coverage files
 .coverage
 htmlcov/

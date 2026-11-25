@@ -35,6 +35,8 @@ class Commodity(models.Model):
     def __str__(self):
         return self.name
 
+    # used in the inquiry model
+
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -48,6 +50,8 @@ class Category(models.Model):
 
     def __str__(self):
         return self.name
+
+    # used in the inquiry model
 
 
 class SubCategory(models.Model):
@@ -71,19 +75,50 @@ class SubCategory(models.Model):
     def __str__(self):
         return f"{self.category} / {self.name}"
 
+    # used in the inquiry model
 
-class ServiceLevelTarget(models.Model):
-    """Optional override of the category's targets for one priority, e.g. Critical = 2 hours."""
 
+class SubSubCategory(models.Model):
     category = models.ForeignKey(
-        Category, on_delete=models.CASCADE, related_name="priority_slas"
+        Category,
+        on_delete=models.PROTECT,
     )
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, blank=True)
-    first_response_hours = models.PositiveIntegerField(default=1)
-    resolution_hours = models.PositiveIntegerField(default=24)
+    subcategory = models.ForeignKey(
+        SubCategory,
+        on_delete=models.PROTECT,
+    )
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    sla_hours = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Leave empty to use the category's target"
+    )
+    default_priority = models.CharField(
+        max_length=10, choices=PRIORITY_CHOICES, default="medium"
+    )
+    active = models.BooleanField(default=True)
 
     class Meta:
-        unique_together = ("category", "priority")
+        unique_together = ("category", "name")
+        verbose_name_plural = "sub-categories"
+
+    def __str__(self):
+        return f"{self.category} / {self.name}"
+
+    # used in the inquiry model
+
+
+# class ServiceLevelTarget(models.Model):
+#     """Optional override of the category's targets for one priority, e.g. Critical = 2 hours."""
+
+#     category = models.ForeignKey(
+#         Category, on_delete=models.CASCADE, related_name="priority_slas"
+#     )
+#     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, blank=True)
+#     first_response_hours = models.PositiveIntegerField(default=1)
+#     resolution_hours = models.PositiveIntegerField(default=24)
+
+#     class Meta:
+#         unique_together = ("category", "priority")
 
 
 class RoutingRule(models.Model):
@@ -107,9 +142,9 @@ class RoutingRule(models.Model):
         related_name="routing_rules",
         help_text="The ward / sub-county / county at this level. Empty for National.",
     )
-    officer = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="routing_rules"
-    )  # kiamis user replace this line
+    officer = models.CharField(max_length=100)
+    officer_email = models.EmailField(unique=True)
+    officer_phone = models.CharField(max_length=12, validators=[phone_validator])
 
     class Meta:
         indexes = [models.Index(fields=["category", "level"])]
@@ -205,12 +240,9 @@ class Inquiry(models.Model):
         related_name="inquiries",
     )
 
-    category = models.ForeignKey(
-        Category, on_delete=models.PROTECT, related_name="inquiries"
-    )
-    sub_category = models.ForeignKey(
-        SubCategory, on_delete=models.PROTECT, related_name="inquiries"
-    )
+    category = models.ForeignKey(Category, on_delete=models.PROTECT)
+    sub_category = models.ForeignKey(SubCategory, on_delete=models.PROTECT)
+    sub_subcatergory = models.ForeignKey(SubSubCategory, on_delete=models.PROTECT)
     commodity = models.ForeignKey(
         Commodity,
         null=True,
@@ -219,19 +251,12 @@ class Inquiry(models.Model):
         related_name="inquiries",
     )
     description = models.TextField()
-    ward = models.ForeignKey(
-        AdminUnit,
-        on_delete=models.PROTECT,
-        related_name="inquiries",
-        limit_choices_to={"level": "ward"},
-    )  # prefilled from the caller, editable
-
     priority = models.CharField(
         max_length=10, choices=PRIORITY_CHOICES, default="medium", db_index=True
     )
     status = models.CharField(max_length=20, choices=Status.choices, db_index=True)
     escalation_level = models.PositiveSmallIntegerField(
-        choices=RoutingRule.Level.choices, default=RoutingRule.Level.WARD
+        choices=RoutingRule.Level.choices,  # default=RoutingRule.Level.WARD
     )
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -262,7 +287,7 @@ class Inquiry(models.Model):
         ordering = ["-created_at"]
         verbose_name_plural = "inquiries"
         indexes = [
-            models.Index(fields=["ward", "status"]),
+            # models.Index(fields=["status"]),
             models.Index(fields=["category", "status"]),
         ]
         constraints = [
@@ -338,6 +363,8 @@ class CaseAction(models.Model):
 
     def delete(self, *args, **kwargs):
         raise PermissionError("Audit records cannot be deleted.")
+
+    # understand this more
 
 
 # =====================================================================

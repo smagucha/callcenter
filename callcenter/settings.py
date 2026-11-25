@@ -140,3 +140,15 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+SMS_USERNAME = ""
+SMS_API_KEY = ""
+SMS_SENDER_ID = ""
+SMS_SANDBOX = True
+SMS_WEBHOOK_SECRET = ""
+
+
+WHATSAPP_API_VERSION = ""
+WHATSAPP_PHONE_NUMBER_ID = ""
+WHATSAPP_ACCESS_TOKEN = ""
+WHATSAPP_VERIFY_TOKEN = ""
