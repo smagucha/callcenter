@@ -9,6 +9,7 @@ venv/
 env/
 .venv/
 ENV/
+.env
 
 # Environment variables and secrets
 .envk
