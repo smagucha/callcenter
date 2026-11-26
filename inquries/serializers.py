@@ -9,6 +9,7 @@ from .models import (
     Escalation,
     CaseAction,
     SmsLog,
+    Feedback,
 )
 from .services import ALLOWED, log, normalise_phone  # apply_sla,
 from django.contrib.auth import get_user_model
@@ -648,3 +649,82 @@ class SendSmsSerializer(serializers.Serializer):
             user=self.context["request"].user,
             ticket=validated_data.get("ticket"),
         )
+
+
+class FeedbackSerializer(serializers.ModelSerializer):
+    ticket_no = serializers.CharField(source="ticket.ticket_no", read_only=True)
+    category_name = serializers.CharField(source="ticket.category.name", read_only=True)
+    sub_category_name = serializers.CharField(
+        source="ticket.sub_category.name", read_only=True
+    )
+    priority = serializers.CharField(source="ticket.priority", read_only=True)
+    farmer = serializers.CharField(
+        source="ticket.farmer_id", read_only=True
+    )  # KIAMIS ID
+    provisional_caller = serializers.IntegerField(
+        source="ticket.provisional_caller_id", read_only=True
+    )
+
+    class Meta:
+        model = Feedback
+        fields = [
+            "id",
+            "ticket",
+            "ticket_no",
+            "category_name",
+            "sub_category_name",
+            "priority",
+            "farmer",
+            "provisional_caller",
+            "rating",
+            "comment",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+        extra_kwargs = {
+            "ticket": {"validators": []}
+        }  # one-per-ticket is checked in validate_ticket
+
+    def validate_ticket(self, ticket):
+        if self.instance is not None:  # editing: the ticket cannot change
+            if ticket != self.instance.ticket:
+                raise serializers.ValidationError(
+                    "Feedback cannot be moved to another ticket."
+                )
+            return ticket
+        if ticket.status not in (Inquiry.Status.RESOLVED, Inquiry.Status.CLOSED):
+            raise serializers.ValidationError(
+                "Feedback can only be recorded once the ticket is resolved or closed."
+            )
+        if Feedback.objects.filter(ticket=ticket).exists():
+            raise serializers.ValidationError(
+                "This ticket already has feedback. Edit it instead."
+            )
+        return ticket
+
+    @transaction.atomic
+    def create(self, validated_data):
+        feedback = super().create(validated_data)
+        log(
+            feedback.ticket,
+            "note",
+            self.context["request"].user,
+            to_value=f"{feedback.rating}/5",
+            notes="Farmer feedback recorded",
+        )
+        return feedback
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        old = instance.rating
+        feedback = super().update(instance, validated_data)
+        if feedback.rating != old:
+            log(
+                feedback.ticket,
+                "note",
+                self.context["request"].user,
+                from_value=f"{old}/5",
+                to_value=f"{feedback.rating}/5",
+                notes="Farmer feedback changed",
+            )
+        return feedback

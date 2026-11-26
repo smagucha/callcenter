@@ -8,7 +8,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-
+from .models import AdminUnit, Call, ProvisionalCaller
+from .services import complete_provisional
 from .models import SmsLog
 from .serializers import SendSmsSerializer, SmsLogSerializer
 from .utils import (
@@ -534,3 +535,44 @@ def sms_delivery_webhook(request):
         sms.error = str(request.data.get("failureReason", ""))[:255]
     sms.save()  # other states (sent, buffered) change nothing
     return Response({"ok": True})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def latest_call(request):
+    """Polled by the agent page: newest call from the last 10 minutes."""
+    since = timezone.now() - timedelta(minutes=10)
+    call = (
+        Call.objects.select_related("farmer__ward", "provisional_caller__ward")
+        .filter(start_time__gte=since)
+        .first()
+    )
+    if not call:
+        return Response({"call": None})
+
+    data = {
+        "id": call.pk,
+        "phone": call.phone_number,
+        "in_registry": False,
+        "needs_details": False,
+        "reference": "",
+        "name": "",
+        "ward": "",
+    }
+    if call.farmer:
+        f = call.farmer
+        data.update(
+            in_registry=True,
+            reference=f.farmer_id,
+            name=f.full_name,
+            ward=f.ward.name if f.ward else "",
+        )
+    elif call.provisional_caller:
+        p = call.provisional_caller
+        data.update(
+            reference=p.reference,
+            name=p.name,
+            ward=p.ward.name if p.ward else "",
+            needs_details=p.registration_status == ProvisionalCaller.Status.INCOMPLETE,
+        )
+    return Response({"call": data})
